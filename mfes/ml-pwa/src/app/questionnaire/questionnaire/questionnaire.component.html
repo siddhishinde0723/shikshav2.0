@@ -1,0 +1,26 @@
+
+
+<ion-header [translucent]="true">
+  <ion-toolbar>
+      <ion-buttons slot="start">
+        <ion-icon name="arrow-back-outline" (click)="canPageLeave($event)" class="back-button"></ion-icon>
+      </ion-buttons>
+    </ion-toolbar>
+</ion-header>
+
+<ion-content >
+<div class="details-background">
+  <div class="details-section">
+    @if(showDetails){
+      <questionnaire-player-main
+      angular
+      [apiConfig]="apiConfig"
+      [saveQuestioner]="saveQuestioner"
+    ></questionnaire-player-main>
+    }
+  </div>
+</div>
+</ion-content>
+
+
+

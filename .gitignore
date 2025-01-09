@@ -7,6 +7,7 @@ out-tsc
 
 # dependencies
 node_modules
+mfes/ml-pwa/node_modules
 
 # IDEs and editors
 /.idea
@@ -44,3 +45,7 @@ Thumbs.db
 # Next.js
 .next
 out
+
+mfes/ml-pwa/.angular
+mfes/project-player/.angular
+mfes/project-player/project-webcomponent
