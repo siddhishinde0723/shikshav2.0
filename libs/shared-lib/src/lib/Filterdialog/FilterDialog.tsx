@@ -153,6 +153,7 @@ export const FilterDialog = ({
   isMobile = false,
   resources = [],
   mimeType = [],
+  translations,
 }: {
   open?: boolean;
   onClose?: () => void;
@@ -176,6 +177,13 @@ export const FilterDialog = ({
   isMobile?: boolean;
   resources?: { label: string; value: string }[];
   mimeType?: { label: string; value: string }[];
+  translations?: {
+    resourceType?: string;
+    apply?: string;
+    reset?: string;
+    subject?: string;
+    contentType?: string;
+  };
 }) => {
   // Manage the selected values for each category
   const [selectedValues, setSelectedValues] = useState(filterValues ?? {});

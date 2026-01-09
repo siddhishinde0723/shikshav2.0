@@ -20,7 +20,7 @@ const telemetryConfig = {
     ver: 'atree',
   },
   env: 'atree',
-  channel: '',
+  channel: 'atree',
   did: 'did',
   authtoken: '',
   userId:

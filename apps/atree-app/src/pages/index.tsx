@@ -13,6 +13,8 @@ import Water from '../../assets/images/Water.jpg';
 import Insta from '../component/Insta';
 import Layout from '../component/layout/layout';
 import { ImageBanner } from '../component/layout/ImageBanner';
+
+import { LANGUAGE_KEYS } from '../utils/language.constants';
 import { useEffect, useState } from 'react';
 import { ContentSearch, trackEvent } from '@shared-lib';
 import Loader from '../component/layout/LoaderComponent';
@@ -21,6 +23,9 @@ import Banner from '../component/Banner';
 import DigitalHubBanner from '../component/DigitalHubBanner';
 import atreeLogo from '../../public/images/atreeLogo.svg';
 import { telemetryFactory } from '../utils/telemetry'; // adjust path as needed
+
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import { useAppTranslation } from '../utils/i18n.helper';
 
 interface LandingPageProps {
   frameworkData: any;
@@ -124,10 +129,12 @@ const AnimatedCounter = ({
 };
 
 const LandingPage = ({ frameworkData }: LandingPageProps) => {
-  const t = (data: string) => data;
+  const { t, ready, i18n } = useAppTranslation();
   const [categories, setCategories] = useState<Array<any>>([]);
-
   const [loading, setLoading] = useState(true);
+  const [translationsLoaded, setTranslationsLoaded] = useState(false);
+  const [forceUpdate, setForceUpdate] = useState(0);
+
   const customOrder = [
     'Water',
     'Forest',
@@ -136,8 +143,77 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
     'Activity Books',
     'Potpourri',
   ];
+
+  // Function to get translated category name
+  const getTranslatedCategoryName = (categoryName: string) => {
+    const categoryNameMap: Record<string, string> = {
+      Water: t('WATER'),
+      Forest: t('FOREST'),
+      Land: t('LAND'),
+      'Climate Change': t('CLIMATE_CHANGE'),
+      'Activity Books': t('ACTIVITY_BOOKS'),
+      Potpourri: t('POTPOURRI'),
+    };
+
+    return categoryNameMap[categoryName] || categoryName;
+  };
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  // Listen for language changes
+  useEffect(() => {
+    const handleLanguageChange = (event: CustomEvent) => {
+      console.log('Language change detected in home page:', event.detail);
+      setForceUpdate((prev) => prev + 1);
+    };
+
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'selectedLanguage' && event.newValue) {
+        console.log('Language change detected via storage:', event.newValue);
+        setForceUpdate((prev) => prev + 1);
+      }
+    };
+
+    window.addEventListener(
+      'languageChanged' as any,
+      handleLanguageChange as any
+    );
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener(
+        'languageChanged' as any,
+        handleLanguageChange as any
+      );
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // Load translations on mount and when language changes
+  useEffect(() => {
+    const loadTranslations = async () => {
+      try {
+        console.log(
+          'Loading translations for home page, forceUpdate:',
+          forceUpdate
+        );
+        // Load resources for both languages
+        await Promise.all([
+          i18n.loadNamespaces('common'),
+          i18n.loadLanguages(['en', 'hi']),
+        ]);
+        setTranslationsLoaded(true);
+      } catch (error) {
+        console.error('Error loading translations:', error);
+      }
+    };
+    loadTranslations();
+  }, [i18n, forceUpdate]); // Add forceUpdate as dependency
+
+  // Force re-render when language changes
+  useEffect(() => {
+    console.log('Home page force update triggered:', forceUpdate);
+  }, [forceUpdate]);
 
   useEffect(() => {
     const init = async () => {
@@ -163,12 +239,19 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
-        setLoading(false); // Stop loading when data is fetched
+        setLoading(false);
       }
     };
 
     init();
   }, [frameworkData]);
+
+  useEffect(() => {
+    trackEvent({
+      action: 'view_landing_page',
+      category: 'Landing Page',
+    });
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -181,7 +264,6 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
           pageid: 'landing-page',
           uri: window.location.pathname,
           subtype: isLoggedIn ? 'login-user' : 'non-login-user',
-          // add more fields as needed
         },
         context: {
           env: 'landing',
@@ -190,6 +272,11 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
       });
     }
   }, []);
+
+  // Show loading state until both data and translations are ready
+  if (loading || !ready || !translationsLoaded) {
+    return <Loader />;
+  }
 
   return (
     <Layout
@@ -237,9 +324,7 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
                     mb: 1,
                   }}
                 >
-                  {t(
-                    'Change stems from local action. Hope stems from childrens empowerment to act upon local environmental problems.'
-                  )}
+                  {t(LANGUAGE_KEYS.CHANGE_STEM)}
                 </Typography>
 
                 <Typography
@@ -253,9 +338,7 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
                     color: '#000000',
                   }}
                 >
-                  {t(
-                    'Our mission is to empower environment educators with both hope and action in times of climate change.'
-                  )}
+                  {t(LANGUAGE_KEYS.MISSION_STATEMENT)}
                 </Typography>
               </Box>
             ) : (
@@ -285,9 +368,7 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
                     WebkitBoxOrient: 'vertical',
                   }}
                 >
-                  {t(
-                    `Change stems from local action. Hope stems from children's empowerment to act upon local environmental problems. Our mission is to empower environment educators with both hope and action in times of climate change.`
-                  )}
+                  {t(LANGUAGE_KEYS.CHANGE_STEM)}
                 </Typography>
               </Box>
             )}
@@ -326,6 +407,7 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
                   fontSize={{ xs: '24px', md: '64px' }}
                 />
                 <Typography
+                  key={`resources-${forceUpdate}`}
                   sx={{
                     fontSize: {
                       xs: '10px',
@@ -335,7 +417,7 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
                     },
                   }}
                 >
-                  RESOURCES
+                  {t(LANGUAGE_KEYS.RESOURCES)}
                 </Typography>
               </Box>
               <Box>
@@ -345,13 +427,14 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
                   fontSize={{ xs: '24px', md: '64px' }}
                 />
                 <Typography
+                  key={`categories-${forceUpdate}`}
                   sx={{
                     fontFamily: 'Poppins',
                     fontSize: { xs: '10px', md: '24px' },
                     fontWeight: 400,
                   }}
                 >
-                  CATEGORIES
+                  {t(LANGUAGE_KEYS.CATEGORIES)}
                 </Typography>
               </Box>
               <Box>
@@ -361,12 +444,13 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
                   fontSize={{ xs: '24px', md: '64px' }}
                 />
                 <Typography
+                  key={`languages-${forceUpdate}`}
                   sx={{
                     fontFamily: 'Poppins',
                     fontSize: { xs: '10px', md: '24px', fontWeight: 400 },
                   }}
                 >
-                  LANGUAGES
+                  {t(LANGUAGE_KEYS.LANGUAGES_COUNT)}
                 </Typography>
               </Box>
             </Box>
@@ -389,7 +473,7 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
                 <Grid key={index} size={{ xs: 6, sm: 6, md: 4, lg: 4 }}>
                   <ImageBanner
                     key={index}
-                    name={category?.name}
+                    name={getTranslatedCategoryName(category?.name)}
                     _showAvatar={false}
                     _text={{ textAlign: 'center' }}
                     verticalText={
@@ -424,6 +508,7 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
           }}
         >
           <Typography
+            key={`instagram-${forceUpdate}`}
             align="center"
             sx={{
               fontWeight: 600,
@@ -433,7 +518,7 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
               mb: { xs: '32px', sm: '72px' },
             }}
           >
-            Follow us on Instagram
+            {t(LANGUAGE_KEYS.FOLLOW_INSTAGRAM)}
           </Typography>
           <Insta />
         </Grid>
@@ -443,5 +528,30 @@ const LandingPage = ({ frameworkData }: LandingPageProps) => {
     </Layout>
   );
 };
+
+export async function getServerSideProps(context: { locale?: string }) {
+  const { locale = 'en' } = context;
+
+  const translations = await serverSideTranslations(locale, ['common'], null, [
+    'DIGITAL_HUB_BANNER',
+  ]);
+
+  // Ensure translations object has the required properties
+  if (
+    !translations._nextI18Next?.initialI18nStore ||
+    !translations._nextI18Next?.initialLocale
+  ) {
+    throw new Error('Failed to load translations');
+  }
+
+  return {
+    props: {
+      _nextI18Next: {
+        initialI18nStore: translations._nextI18Next.initialI18nStore,
+        initialLocale: translations._nextI18Next.initialLocale,
+      },
+    },
+  };
+}
 
 export default LandingPage;

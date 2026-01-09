@@ -16,7 +16,11 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import SearchTypeModal from '../SearchTypeModal';
 import { FrameworkFilter } from '../Tags';
+import LanguageSwitcher from '../LanguageSwitcher';
 import { useRouter } from 'next/router';
+import { useAppTranslation } from '../../utils/i18n.helper';
+import { LANGUAGE_KEYS } from '../../utils/language.constants';
+import { ContentSearch } from '@shared-lib';
 interface ActionIcon {
   icon: React.ReactNode;
   ariaLabel: string;
@@ -76,49 +80,361 @@ const TopAppBar: React.FC<CommonAppBarProps> = ({
   _isDrawer,
 }) => {
   const router = useRouter();
+  const { t, ready } = useAppTranslation();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [frameworkFilter, setFrameworkFilter] = useState();
+  const [frameworkFilter, setFrameworkFilter] = useState<any[]>([]);
   const [framework, setFramework] = useState('');
+  const [filterData, setFilterData] = useState<{
+    authors: string[];
+    publishers: string[];
+    languages: string[];
+  }>({
+    authors: [],
+    publishers: [],
+    languages: [],
+  });
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isAuthPage =
     router.pathname === '/signin' || router.pathname === '/register';
 
-  useEffect(() => {
-    if (framework) {
-      if (frameworkFilter) {
-        const subFrameworkData = (frameworkFilter as any).find(
-          (item: any) => item.identifier === framework
-        );
-        localStorage.setItem(
-          'category',
-          subFrameworkData?.name
-            ? subFrameworkData.name.charAt(0).toUpperCase() +
-                subFrameworkData.name.slice(1).toLowerCase()
-            : ''
-        );
-      }
+  // Helper function to get framework value based on route
+  const getFrameworkValue = () => {
+    return router.pathname === '/' || router.pathname === '/index'
+      ? ''
+      : framework;
+  };
+
+  // Helper function to render drawer content based on conditions
+  const renderDrawerContent = () => {
+    if (!isMobile && !isAuthPage) {
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 2,
+            alignItems: 'center',
+            zIndex: 1100,
+            justifyContent: 'flex-end',
+            minWidth: { xs: '200px', sm: '300px' },
+          }}
+        >
+          {/* 🔍 Search Box */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: { xs: '40px', md: '40px' },
+              height: '40px',
+              borderRadius: '28px',
+              cursor: 'pointer',
+            }}
+            onClick={handleSearchOpen}
+          >
+            <SearchIcon sx={{ color: 'text.secondary' }} />
+          </Box>
+
+          {/* 🌐 Language Switcher */}
+          <Box
+            sx={{
+              width: { xs: 100, sm: 120 },
+              display: 'flex',
+              justifyContent: 'center',
+            }}
+          >
+            <LanguageSwitcher />
+          </Box>
+
+          {/* ☰ Menu Icon */}
+          <IconButton
+            size="large"
+            edge="start"
+            sx={{ color: 'text.secondary' }}
+            aria-label="menu"
+            onClick={menuIconClick}
+          >
+            <MenuIcon />
+          </IconButton>
+        </Box>
+      );
     }
-  }, []);
+
+    if (isAuthPage) {
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 2,
+            alignItems: 'center',
+            zIndex: 1100,
+            justifyContent: 'flex-end',
+            minWidth: { xs: '200px', sm: '300px' },
+          }}
+        >
+          {/* 🔍 Search Box - Icon Only for Auth Pages */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: { xs: '40px', md: '40px' },
+              height: '40px',
+              borderRadius: '28px',
+              cursor: 'pointer',
+            }}
+            onClick={handleSearchOpen}
+          >
+            <SearchIcon sx={{ color: 'text.secondary' }} />
+          </Box>
+
+          {/* 🌐 Language Switcher */}
+          <Box
+            sx={{
+              width: { xs: 100, sm: 120 },
+              display: 'flex',
+              justifyContent: 'center',
+            }}
+          >
+            <LanguageSwitcher />
+          </Box>
+
+          {/* ☰ Menu Icon */}
+          <IconButton
+            size="large"
+            edge="start"
+            sx={{ color: 'text.secondary' }}
+            aria-label="menu"
+            onClick={menuIconClick}
+          >
+            <MenuIcon />
+          </IconButton>
+        </Box>
+      );
+    }
+
+    // Default case (mobile, non-auth page)
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          zIndex: 1100,
+          justifyContent: 'flex-end',
+          minWidth: { xs: '200px', sm: '300px' },
+          gap: 2,
+        }}
+      >
+        {/* 🔍 Search Box - Icon Only for Mobile */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: { xs: '40px', md: '40px' },
+            height: '40px',
+            borderRadius: '28px',
+            cursor: 'pointer',
+          }}
+          onClick={handleSearchOpen}
+        >
+          <SearchIcon sx={{ color: 'text.secondary' }} />
+        </Box>
+        {/* 🌐 Language Switcher */}
+        <Box
+          sx={{
+            width: { xs: 100, sm: 120 },
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          <LanguageSwitcher />
+        </Box>
+        <IconButton
+          size="large"
+          edge="start"
+          sx={{ color: 'text.secondary' }}
+          aria-label="menu"
+          onClick={menuIconClick}
+        >
+          <MenuIcon />
+        </IconButton>
+      </Box>
+    );
+  };
+
   useEffect(() => {
     const init = async () => {
       try {
         const url = `${process.env.NEXT_PUBLIC_SSUNBIRD_BASE_URL}/api/framework/v1/read/${process.env.NEXT_PUBLIC_FRAMEWORK}`;
-        const frameworkData = await fetch(url).then((res) => res.json());
-        const frameworks = frameworkData?.result?.framework?.categories;
+        console.log('Fetching framework data from:', url);
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          console.warn(`Framework API error: ${response.status}`);
+          // Set default framework data
+          setFrameworkFilter([
+            {
+              identifier: 'default',
+              name: 'Default Category',
+              code: 'topic',
+            },
+          ]);
+          setFramework('default');
+          return;
+        }
+
+        const frameworkData = await response.json();
+        console.log('Framework data received:', frameworkData);
+
+        const frameworks = frameworkData?.result?.framework?.categories || [];
         const fdata =
           frameworks.find((item: any) => item.code === 'topic')?.terms || [];
-        setFramework(fdata[0]?.identifier || '');
-        setFrameworkFilter(fdata);
+
+        if (fdata && fdata.length > 0) {
+          // Check if we're on the landing page
+          const isLandingPage =
+            router.pathname === '/' || router.pathname === '/index';
+
+          setFrameworkFilter(fdata);
+
+          if (isLandingPage) {
+            // On landing page, don't set any framework (empty selection)
+            setFramework('');
+          } else {
+            // On other pages, apply saved selection only if it exists
+            let selectedFramework = null;
+
+            // Check if there's already a selected framework in localStorage
+            const savedCategory = localStorage.getItem('category');
+
+            if (savedCategory) {
+              // Try to find the saved category in the framework data
+              const foundFramework = fdata.find(
+                (item: any) =>
+                  item.name.toLowerCase() === savedCategory.toLowerCase()
+              );
+              if (foundFramework) {
+                selectedFramework = foundFramework;
+              }
+            }
+
+            // Only set framework if we have a saved selection
+            setFramework(selectedFramework?.identifier || '');
+          }
+        } else {
+          // Set default framework data if no valid data found
+          setFrameworkFilter([
+            {
+              identifier: 'default',
+              name: 'Default Category',
+              code: 'topic',
+            },
+          ]);
+          setFramework('default');
+        }
       } catch (error) {
-        console.error('Error fetching board data:', error);
+        console.error('Error fetching framework data:', error);
+        // Set default framework data on error
+        setFrameworkFilter([
+          {
+            identifier: 'default',
+            name: 'Default Category',
+            code: 'topic',
+          },
+        ]);
+        setFramework('default');
       }
     };
+
     init();
   }, []);
-  const handleSearchOpen = () => {
-    setIsSearchOpen(true);
+
+  useEffect(() => {
+    if (framework && frameworkFilter?.length > 0) {
+      const subFrameworkData = frameworkFilter.find(
+        (item: any) => item.identifier === framework
+      );
+      if (subFrameworkData?.name) {
+        localStorage.setItem(
+          'category',
+          subFrameworkData.name.charAt(0).toUpperCase() +
+            subFrameworkData.name.slice(1).toLowerCase()
+        );
+      }
+    }
+  }, [framework, frameworkFilter]);
+
+  const handleSearchOpen = async () => {
+    try {
+      // Make API call to get all content for filtering
+      const data = await ContentSearch({
+        channel: process.env.NEXT_PUBLIC_CHANNEL_ID as string,
+        filters: {
+          contentType: { ne: 'Asset' },
+        },
+        offset: 0,
+      });
+
+      const contentList = data?.result?.content || [];
+
+      // Extract unique values for each filter type
+      const authors = [
+        ...new Set(
+          contentList
+            .map((item: any) => item.author)
+            .filter(Boolean)
+            .flatMap((creator: string) =>
+              creator
+                .split(',')
+                .map((name: string) => name.trim())
+                .filter(Boolean)
+            )
+        ),
+      ];
+      const publishers = [
+        ...new Set(
+          contentList
+            .map((item: any) => item.publisher)
+            .filter(Boolean)
+            .flatMap((publisher: string) =>
+              publisher
+                .split(',')
+                .map((name: string) => name.trim())
+                .filter(Boolean)
+            )
+        ),
+      ];
+      // Handle language field which might be an array
+      const languages = [
+        ...new Set(
+          contentList
+            .flatMap((item: any) =>
+              Array.isArray(item.language) ? item.language : [item.language]
+            )
+            .filter(Boolean)
+            .flatMap((language: string) =>
+              language
+                .split(',')
+                .map((lang: string) => lang.trim())
+                .filter(Boolean)
+            )
+        ),
+      ];
+
+      setFilterData({
+        authors,
+        publishers,
+        languages,
+      });
+
+      setIsSearchOpen(true);
+    } catch (error) {
+      console.error('Error fetching filter data:', error);
+      setIsSearchOpen(true);
+    }
   };
+
   const handleSearchClose = () => {
     setIsSearchOpen(false);
   };
@@ -135,7 +451,15 @@ const TopAppBar: React.FC<CommonAppBarProps> = ({
           objectFit: 'contain',
         }}
       >
-        <Container maxWidth="xl" sx={{ height: '100%' }}>
+        <Container
+          maxWidth="xl"
+          sx={{
+            height: '100%',
+            width: '100%',
+            margin: '0 auto',
+            px: { xs: 2, sm: 3 },
+          }}
+        >
           <Toolbar
             disableGutters
             sx={{
@@ -143,7 +467,15 @@ const TopAppBar: React.FC<CommonAppBarProps> = ({
               minHeight: { xs: '0px', md: '64px' },
             }}
           >
-            <Box display={'flex'} alignItems="center" sx={{ height: '100%' }}>
+            <Box
+              display={'flex'}
+              alignItems="center"
+              sx={{
+                height: '100%',
+                width: '100%',
+                justifyContent: 'space-between',
+              }}
+            >
               {showBackIcon && (
                 <IconButton
                   size="large"
@@ -215,17 +547,27 @@ const TopAppBar: React.FC<CommonAppBarProps> = ({
             </Box>
 
             {/* Middle section with FrameworkFilter and Search */}
-            <Box display="flex" alignItems="center" gap={2}>
+            <Box
+              display="flex"
+              alignItems="center"
+              gap={2}
+              sx={{
+                flex: '0 0 auto',
+                minWidth: { xs: '200px', sm: '300px' },
+                justifyContent: 'flex-end',
+              }}
+            >
               {!isMobile && (
                 <Box
                   sx={{
-                    // minWidth: '200px',
-                    position: 'relative', // Adjust width as needed
+                    minWidth: '200px',
+                    position: 'relative',
+                    flex: '1 1 auto',
                   }}
                 >
                   <FrameworkFilter
-                    frameworkFilter={frameworkFilter ?? []}
-                    framework={framework}
+                    frameworkFilter={frameworkFilter}
+                    framework={getFrameworkValue()}
                     setFramework={setFramework}
                     fromSubcategory={false}
                   />
@@ -234,117 +576,23 @@ const TopAppBar: React.FC<CommonAppBarProps> = ({
 
               {_isDrawer && (
                 <Box display="flex" alignItems="center">
-                  {!isMobile && !isAuthPage ? (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        gap: 2,
-                        alignItems: 'center',
-                        zIndex: 1100,
-                      }}
-                    >
-                      {/* 🔍 Search Box */}
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: { xs: '40px', md: '40px' },
-                          height: '40px',
-                          borderRadius: '28px',
-                          cursor: 'pointer',
-                        }}
-                        onClick={handleSearchOpen}
-                      >
-                        <SearchIcon sx={{ color: 'text.secondary' }} />
-                      </Box>
-
-                      {/* ☰ Menu Icon */}
-                      <IconButton
-                        size="large"
-                        edge="start"
-                        sx={{ color: 'text.secondary' }}
-                        aria-label="menu"
-                        onClick={menuIconClick}
-                      >
-                        <MenuIcon />
-                      </IconButton>
-                    </Box>
-                  ) : (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        zIndex: 1100,
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1.5,
-                          px: 2,
-                          py: '4px',
-                          borderRadius: '10px',
-                          border: '1px solid',
-                          borderColor: 'divider',
-                        
-                          '&:hover': {
-                           
-                            cursor: 'text',
-                          },
-                          width: '100%',
-                            maxWidth: '500px',
-                          marginRight: '10px',
-                        }}
-                        onClick={handleSearchOpen}
-                      >
-                       
-
-                        {/* Search icon */}
-                        <SearchIcon
-                          fontSize="small"
-                          sx={{ color: 'text.secondary' }}
-                        />
-
-                        {/* Search text */}
-                        <Typography
-                          variant="body1"
-                          sx={{
-                            color: 'text.secondary',
-                            flexGrow: 1,
-                            fontSize: 14,
-                          }}
-                        >
-                          Search...
-                        </Typography>
-                      </Box>
-                      <IconButton
-                        size="large"
-                        edge="start"
-                        sx={{ color: 'text.secondary' }}
-                        aria-label="menu"
-                        onClick={menuIconClick}
-                      >
-                        <MenuIcon />
-                      </IconButton>
-                    </Box>
-                  )}
-                  <SearchTypeModal
-                    open={isSearchOpen}
-                    onClose={handleSearchClose}
-                    onSelect={(type) => console.log(type)}
-                  />
-                  {profileIcon && profileIcon.length > 0 && (
-                    <IconButton
-                      color={actionButtonColor}
-                      aria-label={profileIcon[0]?.ariaLabel}
-                      onClick={profileIcon[0]?.onLogoutClick}
-                    >
-                      {profileIcon[0].icon}
-                    </IconButton>
-                  )}
+                  {renderDrawerContent()}
                 </Box>
+              )}
+              <SearchTypeModal
+                open={isSearchOpen}
+                onClose={handleSearchClose}
+                onSelect={(type) => console.log(type)}
+                filterData={filterData}
+              />
+              {profileIcon && profileIcon.length > 0 && (
+                <IconButton
+                  color={actionButtonColor}
+                  aria-label={profileIcon[0]?.ariaLabel}
+                  onClick={profileIcon[0]?.onLogoutClick}
+                >
+                  {profileIcon[0].icon}
+                </IconButton>
               )}
             </Box>
           </Toolbar>

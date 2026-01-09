@@ -27,7 +27,7 @@ const telemetryConfig = {
     ver: 'atree',
   },
   env: 'atree',
-  channel: '',
+  channel: 'atree',
   did: (typeof window !== 'undefined' && localStorage.getItem('deviceId')) || 'pending-device-id',
   authtoken: '',
   userId:
